@@ -17,10 +17,15 @@ enum UploadError: LocalizedError {
 final class UploadService {
     static let shared = UploadService()
 
-    // TODO: replace with your actual backend URL once it's set up —
-    // e.g. an n8n.skyguyver.com webhook that receives these files and
-    // runs your transcribe + translate pipeline.
+    // n8n workflow endpoint (self-hosted on Fly.io)
     private let endpoint = URL(string: "https://skyguyver-n8n-test.fly.dev/webhook-test/shellingford-upload")!
+
+    private static let dayFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd"
+        formatter.timeZone = TimeZone.current
+        return formatter
+    }()
 
     /// Uploads all of a day's recordings as one multipart request, tagged
     /// with the day so the backend can group/label the batch.
@@ -33,9 +38,10 @@ final class UploadService {
 
         var body = Data()
 
-        let dayFormatter = ISO8601DateFormatter()
-        dayFormatter.formatOptions = [.withFullDate]
-        let dayString = dayFormatter.string(from: day)
+        // Important: use the device's local calendar day here, not UTC.
+        // ISO8601DateFormatter defaults to UTC, which caused the day field
+        // to read as "yesterday" once local time was ahead of UTC's rollover.
+        let dayString = Self.dayFormatter.string(from: day)
 
         body.append("--\(boundary)\r\n".data(using: .utf8)!)
         body.append("Content-Disposition: form-data; name=\"day\"\r\n\r\n".data(using: .utf8)!)
