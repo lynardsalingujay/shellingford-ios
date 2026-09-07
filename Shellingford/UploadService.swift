@@ -20,7 +20,7 @@ final class UploadService {
     // TODO: replace with your actual backend URL once it's set up —
     // e.g. an n8n.skyguyver.com webhook that receives these files and
     // runs your transcribe + translate pipeline.
-    private let endpoint = URL(string: "https://n8n.skyguyver.com/webhook/shellingford-upload")!
+    private let endpoint = URL(string: "https://skyguyver-n8n-test.fly.dev/webhook-test/shellingford-upload")!
 
     /// Uploads all of a day's recordings as one multipart request, tagged
     /// with the day so the backend can group/label the batch.
