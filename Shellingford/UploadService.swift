@@ -18,7 +18,7 @@ final class UploadService {
     static let shared = UploadService()
 
     // n8n workflow endpoint (self-hosted on Fly.io)
-    private let endpoint = URL(string: "https://skyguyver-n8n-test.fly.dev/webhook-test/shellingford-upload")!
+    private let endpoint = URL(string: "https://skyguyver-n8n-test.fly.dev/webhook/shellingford-upload")!
 
     private static let dayFormatter: DateFormatter = {
         let formatter = DateFormatter()
