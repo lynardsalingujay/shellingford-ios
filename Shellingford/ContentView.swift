@@ -2,6 +2,7 @@ import SwiftUI
 
 struct ContentView: View {
     @StateObject private var viewModel = RecordingViewModel()
+    @State private var dayPendingDeletion: Date?
 
     var body: some View {
         NavigationStack {
@@ -66,6 +67,21 @@ struct ContentView: View {
             } message: {
                 Text(viewModel.uploadResultMessage ?? "")
             }
+            .alert(
+                "Delete Recordings?",
+                isPresented: Binding(
+                    get: { dayPendingDeletion != nil },
+                    set: { if !$0 { dayPendingDeletion = nil } }
+                ),
+                presenting: dayPendingDeletion
+            ) { day in
+                Button("Delete", role: .destructive) {
+                    viewModel.deleteAllRecordings(for: day)
+                }
+                Button("Cancel", role: .cancel) {}
+            } message: { day in
+                Text("This will permanently delete all recordings for \(day.formatted(date: .abbreviated, time: .omitted)). This can't be undone.")
+            }
         }
     }
 
@@ -79,6 +95,13 @@ struct ContentView: View {
             Text("(\(count))")
                 .foregroundStyle(.secondary)
             Spacer()
+            Button {
+                dayPendingDeletion = day
+            } label: {
+                Image(systemName: "trash")
+            }
+            .foregroundStyle(.red)
+            .disabled(viewModel.isUploading)
             Button {
                 viewModel.uploadRecordings(for: day)
             } label: {

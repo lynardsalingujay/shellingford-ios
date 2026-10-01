@@ -159,6 +159,23 @@ final class RecordingViewModel: NSObject, ObservableObject {
         loadExistingRecordings()
     }
 
+    /// Deletes every recording belonging to the given day. The confirmation
+    /// prompt itself lives in the view — this just does the actual deletion
+    /// once the user has confirmed.
+    func deleteAllRecordings(for day: Date) {
+        let calendar = Calendar.current
+        let dayRecordings = recordings.filter { calendar.isDate($0.createdAt, inSameDayAs: day) }
+
+        for recording in dayRecordings {
+            if currentlyPlayingID == recording.id {
+                stopPlayback()
+            }
+            try? FileManager.default.removeItem(at: recording.url)
+        }
+
+        loadExistingRecordings()
+    }
+
     // MARK: - Grouping + upload
 
     /// Recordings grouped by calendar day, newest day first — this is what
