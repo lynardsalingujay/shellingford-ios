@@ -60,8 +60,16 @@ final class RecordingViewModel: NSObject, ObservableObject {
     private func startRecording() {
         let session = AVAudioSession.sharedInstance()
         do {
-            try session.setCategory(.playAndRecord, mode: .default)
+            // .voiceChat is the same audio mode Phone/FaceTime Audio use — it
+            // optimizes microphone pickup for near-ear use, so holding the
+            // phone like a call actually captures clearly instead of relying
+            // on the bottom mic from an awkward distance.
+            try session.setCategory(.playAndRecord, mode: .voiceChat)
             try session.setActive(true)
+
+            // Lets iOS detect when the phone is held to your ear, so it can
+            // automatically blank the screen — same as a real phone call.
+            UIDevice.current.isProximityMonitoringEnabled = true
 
             // Filename encodes the exact date/time this entry was recorded.
             let safeTimestamp = ISO8601DateFormatter()
@@ -98,6 +106,7 @@ final class RecordingViewModel: NSObject, ObservableObject {
         isRecording = false
         stopTimer()
         UIApplication.shared.isIdleTimerDisabled = false
+        UIDevice.current.isProximityMonitoringEnabled = false
     }
 
     private func startTimer() {

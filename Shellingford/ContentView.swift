@@ -42,6 +42,9 @@ struct ContentView: View {
                     .padding(.vertical, 24)
             }
             .navigationTitle("Shellingford")
+            .fullScreenCover(isPresented: $viewModel.isRecording) {
+                CallRecordingView(viewModel: viewModel)
+            }
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
