@@ -50,7 +50,7 @@ struct ContentView: View {
                     Button {
                         viewModel.uploadRecordings(for: Date())
                     } label: {
-                        if viewModel.isUploading {
+                        if viewModel.isUploading(day: Date()) {
                             ProgressView()
                         } else {
                             Label("Upload Today", systemImage: "icloud.and.arrow.up")
@@ -108,7 +108,11 @@ struct ContentView: View {
             Button {
                 viewModel.uploadRecordings(for: day)
             } label: {
-                Image(systemName: "icloud.and.arrow.up")
+                if viewModel.isUploading(day: day) {
+                    ProgressView()
+                } else {
+                    Image(systemName: "icloud.and.arrow.up")
+                }
             }
             .disabled(viewModel.isUploading)
         }

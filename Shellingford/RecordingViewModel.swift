@@ -18,8 +18,17 @@ final class RecordingViewModel: NSObject, ObservableObject {
     @Published var isRecording = false
     @Published var currentRecordingDuration: TimeInterval = 0
     @Published var currentlyPlayingID: UUID?
-    @Published var isUploading = false
+    /// The day currently being uploaded (nil when idle). Tracking the day,
+    /// not just a Bool, lets only that day's button show a spinner.
+    @Published var uploadingDay: Date?
     @Published var uploadResultMessage: String?
+
+    var isUploading: Bool { uploadingDay != nil }
+
+    func isUploading(day: Date) -> Bool {
+        guard let uploadingDay else { return false }
+        return Calendar.current.isDate(uploadingDay, inSameDayAs: day)
+    }
 
     private var audioRecorder: AVAudioRecorder?
     private var audioPlayer: AVAudioPlayer?
@@ -200,6 +209,8 @@ final class RecordingViewModel: NSObject, ObservableObject {
     /// Consolidates and uploads every recording from the given day — works
     /// equally for today or any past day you forgot to send earlier.
     func uploadRecordings(for day: Date) {
+        guard !isUploading else { return }
+
         let calendar = Calendar.current
         let dayRecordings = recordings
             .filter { calendar.isDate($0.createdAt, inSameDayAs: day) }
@@ -210,24 +221,35 @@ final class RecordingViewModel: NSObject, ObservableObject {
             return
         }
 
-        isUploading = true
+        uploadingDay = calendar.startOfDay(for: day)
         uploadResultMessage = nil
+
+        // Keep the screen awake while uploading. If it auto-locks, iOS
+        // suspends the app and the in-flight upload can stall or fail.
+        UIApplication.shared.isIdleTimerDisabled = true
 
         Task {
             do {
-                try await UploadService.shared.upload(recordings: dayRecordings, day: day)
+                let bytes = try await UploadService.shared.upload(recordings: dayRecordings, day: day)
+                let size = ByteCountFormatter.string(fromByteCount: Int64(bytes), countStyle: .file)
                 await MainActor.run {
-                    self.isUploading = false
-                    self.uploadResultMessage =
-                        "Uploaded \(dayRecordings.count) recording(s) for \(Self.dayFormatter.string(from: day))."
+                    self.finishUpload(
+                        message: "Uploaded \(dayRecordings.count) recording(s) for \(Self.dayFormatter.string(from: day)) (\(size))."
+                    )
                 }
             } catch {
                 await MainActor.run {
-                    self.isUploading = false
-                    self.uploadResultMessage = "Upload failed: \(error.localizedDescription)"
+                    self.finishUpload(message: "Upload failed: \(error.localizedDescription)")
                 }
             }
         }
+    }
+
+    private func finishUpload(message: String) {
+        uploadingDay = nil
+        // Don't switch the screen-lock back on if a recording is in progress.
+        UIApplication.shared.isIdleTimerDisabled = isRecording
+        uploadResultMessage = message
     }
 
     private static let dayFormatter: DateFormatter = {

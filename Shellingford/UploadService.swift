@@ -2,14 +2,21 @@ import Foundation
 
 enum UploadError: LocalizedError {
     case invalidResponse
-    case serverError(Int)
+    case serverError(Int, String)
 
     var errorDescription: String? {
         switch self {
         case .invalidResponse:
             return "The server didn't return a valid response."
-        case .serverError(let code):
-            return "Server responded with error code \(code)."
+        case .serverError(let code, let detail):
+            switch code {
+            case 404:
+                return "The upload address wasn't found (404). Check the webhook URL and that the n8n workflow is active."
+            case 413:
+                return "The upload was too large for the server (413). Try again with fewer or shorter recordings."
+            default:
+                return "Server responded with error \(code). \(detail)"
+            }
         }
     }
 }
@@ -29,9 +36,12 @@ final class UploadService {
 
     /// Uploads all of a day's recordings as one multipart request, tagged
     /// with the day so the backend can group/label the batch.
-    func upload(recordings: [Recording], day: Date) async throws {
+    /// Returns the number of bytes sent, so the app can show the upload size.
+    func upload(recordings: [Recording], day: Date) async throws -> Int {
         var request = URLRequest(url: endpoint)
         request.httpMethod = "POST"
+        // Idle timeout while waiting on the server (the default is 60 seconds).
+        request.timeoutInterval = 120
 
         let boundary = "Boundary-\(UUID().uuidString)"
         request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
@@ -61,13 +71,17 @@ final class UploadService {
 
         body.append("--\(boundary)--\r\n".data(using: .utf8)!)
 
-        let (_, response) = try await URLSession.shared.upload(for: request, from: body)
+        let (data, response) = try await URLSession.shared.upload(for: request, from: body)
 
         guard let httpResponse = response as? HTTPURLResponse else {
             throw UploadError.invalidResponse
         }
         guard (200...299).contains(httpResponse.statusCode) else {
-            throw UploadError.serverError(httpResponse.statusCode)
+            let detail = String(data: data.prefix(200), encoding: .utf8)?
+                .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            throw UploadError.serverError(httpResponse.statusCode, detail)
         }
+
+        return body.count
     }
 }
