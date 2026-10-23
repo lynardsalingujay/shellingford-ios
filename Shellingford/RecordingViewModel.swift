@@ -17,6 +17,7 @@ final class RecordingViewModel: NSObject, ObservableObject {
     @Published var recordings: [Recording] = []
     @Published var isRecording = false
     @Published var currentRecordingDuration: TimeInterval = 0
+    @Published var isPaused = false
     @Published var currentlyPlayingID: UUID?
     /// The day currently being uploaded (nil when idle). Tracking the day,
     /// not just a Bool, lets only that day's button show a spinner.
@@ -103,6 +104,7 @@ final class RecordingViewModel: NSObject, ObservableObject {
             UIApplication.shared.isIdleTimerDisabled = true
 
             recordingStartTime = Date()
+            isPaused = false
             isRecording = true
             startTimer()
         } catch {
@@ -113,15 +115,32 @@ final class RecordingViewModel: NSObject, ObservableObject {
     private func stopRecording() {
         audioRecorder?.stop()
         isRecording = false
+        isPaused = false
         stopTimer()
         UIApplication.shared.isIdleTimerDisabled = false
         UIDevice.current.isProximityMonitoringEnabled = false
     }
 
+    /// Powers the "Mute" button on the call screen. Pausing stops capturing
+    /// audio (like a muted mic on a call); resuming continues the same file.
+    func togglePause() {
+        guard isRecording, let recorder = audioRecorder else { return }
+        if isPaused {
+            recorder.record()
+            isPaused = false
+        } else {
+            recorder.pause()
+            isPaused = true
+        }
+    }
+
     private func startTimer() {
         timer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
             guard let self, let start = self.recordingStartTime else { return }
-            self.currentRecordingDuration = Date().timeIntervalSince(start)
+            // currentTime is the audio actually recorded, so it holds still
+            // while paused; the wall-clock fallback only covers the first tick.
+            self.currentRecordingDuration =
+                self.audioRecorder?.currentTime ?? Date().timeIntervalSince(start)
         }
     }
 
